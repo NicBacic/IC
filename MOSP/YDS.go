@@ -1,34 +1,13 @@
-package main
+package MOSP
 
 import (
 "fmt"
 "math/rand"
 "sort"
 )
-/*************************************************
 
-This implementation can be optimized by using pointers and list instead of vectors.
 
-type Jobs struct {
-timeToExecute float32
-initTime float32
-id int // We use ID to know from which Organization this job belongs
-}
-
-type Processor struct{
-jobs []Jobs
-num int
-localMakeSpan float32
-}
-
-type Organization struct{
-num int
-jobs []Jobs
-p []Processor
-totalMakeSpan float32
-}
-
-************************************************/
+/************************************************/
 
 
 /*Sobre o Algoritmo YDS: O teorema 3.1.2 sugere uma estratégia gulosa para encontrar um escalonamento ótimo iterativamente. Basta, a cada iteração, identificar o intervalo de densidade máxima I* bem com as tarefas Ji* e processá-las com velocidade delta I*. Feito isso, removemos o intervalo I* de consideração, isto é, nenhuma outra tarefa será executada naquele intervalo. Caso alguma tarefa tenha seu intervalo de execução parcialmente dentro do intervalo de densidade máxima, seu tempo de chegada ou prazo são ajustados, isto é, modificados para coincidir com o limite do intervalo a qual intersectam.
@@ -109,17 +88,17 @@ func build(n int) Processor{
 	p.Jobs = make([]Jobs,n)
 
 	//Release date, deadline and weight
-	/*r:= 0
+	r:= 0
 	d:= 1
 	w:= 1
-	offset := 0.0
+	var offset float32 = 0.0
 	for i := 0; i < n; i++ {
 		r,d,w = random()
 		job := Jobs{r,d,w,i,offset}
 		p.Jobs[i] = job
-	}*/
+	}
 	
-	/* Caso teste
+	/* Caso teste 1
 	p.Jobs[0] = Jobs{1, 3, 6, 5,0}
         p.Jobs[1] = Jobs{2, 2, 6, 3,0}
         p.Jobs[2] = Jobs{3, 0, 8, 2,0}
@@ -128,17 +107,7 @@ func build(n int) Processor{
         p.Jobs[5] = Jobs{6, 11, 17, 2,0}
         p.Jobs[6] = Jobs{7, 12, 17, 2,0}
 
-	 yds.Task("t1",  0, 17,  5),
-    yds.Task("t2",  1, 11,  3),
-    yds.Task("t3", 12, 20,  4),
-    yds.Task("t4",  7, 11,  2),
-    yds.Task("t5",  1, 20,  4),
-    yds.Task("t6", 14, 20, 12),
-    yds.Task("t7", 14, 17,  4),
-    yds.Task("t8",  1,  7,  2)
-				*/
-
-
+	//Caso Teste 2
 	p.Jobs[0] = Jobs{1, 0, 17, 5,0}
         p.Jobs[1] = Jobs{2, 1, 11, 3,0}
         p.Jobs[2] = Jobs{3, 12, 20, 4,0}
@@ -148,10 +117,11 @@ func build(n int) Processor{
         p.Jobs[6] = Jobs{7, 14, 17, 4,0}
 	p.Jobs[7] = Jobs{8, 1, 7, 2,0}
 
-	/*
+	//Caso Teste 3
 	p.Jobs[0] = Jobs{0,3,3,0,0.0}
 	p.Jobs[1] = Jobs{1,4,2,1,0.0}
 	p.Jobs[2] = Jobs{2,3,1,2,0.0}*/
+
 	return p
 }
 
@@ -311,10 +281,3 @@ func intervaloDeDensidadeMaxima(interval []Interval) Interval{
 	return interval[index]
 }
 
-func main(){
-	p := build(8)
-	fmt.Println(p.Jobs)
-	schedule := YDS(p.Jobs)
-	sort.Sort(ByReleaseDate(schedule))
-	fmt.Println(schedule)
-}
