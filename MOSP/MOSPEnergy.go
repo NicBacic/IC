@@ -153,8 +153,10 @@ func YDS(jobs []Jobs, m int, t bool){
 }
 
 func trySchedule(jobs []Jobs, k int) bool {
+	it := 0
 
 	for len(jobs) > 0 {
+		it++
 
 		intervalo := calculaIntervalos(jobs)
 
@@ -166,13 +168,18 @@ func trySchedule(jobs []Jobs, k int) bool {
 
 		sort.Sort(ByDistance(intervaloDensidadeMax.Jobs))
 
-		if orgs[0].dMax <= intervaloDensidadeMax.end {
+		
+		for i:=0; i < len(intervaloDensidadeMax.Jobs); i++ {
 
-			for i:=0; i < len(intervaloDensidadeMax.Jobs); i++ {
+			if orgs[0].dMax < intervaloDensidadeMax.end {
 		
 				tempJob := intervaloDensidadeMax.Jobs[i]
 
 				dLinhaMax := orgs[0].dMax
+
+				if tempJob.d <= dLinhaMax {
+					break
+				}
 				
 				jobsScheduled := make([]Jobs, len(orgs[0].Jobs))
 
@@ -188,37 +195,37 @@ func trySchedule(jobs []Jobs, k int) bool {
 
 				scheduledSpeed := calculaIntervaloOrg(jobsScheduled, dLinhaMax)
 			
-				if scheduledSpeed < nowSpeed {
+				if scheduledSpeed <= nowSpeed {
 					orgs[0].Jobs = append(orgs[0].Jobs, tempJob)
 			
-					for i := len(jobs)-1; i >= 0; i-- {
-						if jobs[i].id == tempJob.id {
+					for j := len(jobs)-1; j >= 0; j-- {
+						if jobs[j].id == tempJob.id {
 							if len(jobs) > 1 {
-								jobs = append(jobs[:i], jobs[i+1:]...)
+								jobs = append(jobs[:j], jobs[j+1:]...)
 							} else {
-								jobs = jobs[i:i]
+								jobs = jobs[j:j]
 							}
 							break
 						}
 					}
 
-					for i := len(auxJob)-1; i >= 0; i-- {
-						if auxJob[i].id == tempJob.id {
+					for j := len(auxJob)-1; j >= 0; j-- {
+						if auxJob[j].id == tempJob.id {
 							if len(auxJob) > 1 {
-								auxJob = append(auxJob[:i], auxJob[i+1:]...)
+								auxJob = append(auxJob[:j], auxJob[j+1:]...)
 							} else {
-								auxJob = auxJob[i:i]
+								auxJob = auxJob[j:j]
 							}
 							break
 						}
 					}
 
-					for i := len(orgs[k].Jobs)-1; i >= 0; i-- {
-						if orgs[k].Jobs[i].id == tempJob.id {
+					for j := len(orgs[k].Jobs)-1; j >= 0; j-- {
+						if orgs[k].Jobs[j].id == tempJob.id {
 							if len(orgs[k].Jobs) > 1 {
-								orgs[k].Jobs = append(orgs[k].Jobs[:i], orgs[k].Jobs[i+1:]...)
+								orgs[k].Jobs = append(orgs[k].Jobs[:j], orgs[k].Jobs[j+1:]...)
 							} else {
-								orgs[k].Jobs = orgs[k].Jobs[i:i]
+								orgs[k].Jobs = orgs[k].Jobs[j:j]
 							}
 							break
 						}
@@ -230,11 +237,18 @@ func trySchedule(jobs []Jobs, k int) bool {
 					if len(auxJob) == 0 {
 						break
 					}
+
 				}  else {
 					break
 				}
-			}
-		}
+
+			} else {
+				break
+			}//end if
+
+		}//end for
+
+
 		for j := 0; j < len(intervaloDensidadeMax.Jobs); j++ {
 
 			for k:=0; k < len(jobs); k++ {
@@ -307,6 +321,7 @@ func calculaIntervaloOrg(jobs []Jobs, releaseDate int) float32 {
 			}
 		}
 	}
+	//fmt.Printf("Lista de intervalo size = %d\n\n", len(listaDeIntervalos))
 	intervaloMax := intervaloDeDensidadeMaxima(listaDeIntervalos)
 	return intervaloMax.intensidade
 	
@@ -403,6 +418,7 @@ func intervaloDeDensidadeMaxima(interval []Interval) Interval{
 			index = i
 		}
 	}
+
 	return interval[index]
 }
 
@@ -443,6 +459,7 @@ func buildRandom(n int) bool{
 	}
 
 	orgs[0].dMax = 4
+	orgs[0].dLinha = orgs[0].dMax
 
 	//fmt.Println("Organization 0 Jobs = ",orgs[0].Jobs)
 
@@ -452,6 +469,7 @@ func buildRandom(n int) bool{
 	vector2 := []int{1,2,3,5,7,8,9}
 	
 	orgs[1].dMax = 9
+	orgs[1].dLinha = orgs[1].dMax
 
 	for i:=0; i < 7; i++ {
 		orgs[1].Jobs[i].r = 0
@@ -467,6 +485,7 @@ func buildRandom(n int) bool{
 	vector3 := []int{3,3,3,9,9,9}
 	
 	orgs[2].dMax = 9
+	orgs[2].dLinha = orgs[2].dMax
 
 	for i:=0; i < 6; i++ {
 		orgs[2].Jobs[i].r = 0
@@ -482,6 +501,7 @@ func buildRandom(n int) bool{
 	vector4 := []int{4,4,4,4,5,6,13,14,15,17,17}
 	
 	orgs[3].dMax = 17
+	orgs[3].dLinha = orgs[3].dMax
 
 	for i:=0; i < 11; i++ {
 		orgs[3].Jobs[i].r = 0
@@ -500,6 +520,7 @@ func zipfDistribution(m int, n int64, c float64){
 
 	j:=0
 	idJob := 1
+	var deadline int
 
 	var mFloat float64 = float64(m)
 
@@ -509,22 +530,25 @@ func zipfDistribution(m int, n int64, c float64){
  	zipf := rand.NewZipf(r, c, mFloat, uIntn)
 
 	for j < m {
-		k := zipf.Uint64()
+		var k uint64 = 1
 		if k > 0 {
 			orgs[j].id = j
 			numberOfJobs := rand.Intn(int(n)) + 1
 			orgs[j].Jobs = make([]Jobs,numberOfJobs)
 			orgs[j].dMax = 1
+			orgs[j].dLinha = 1
 
 			for i:=0; i < numberOfJobs; i++ {
 				orgs[j].Jobs[i].r = 0
 				orgs[j].Jobs[i].w = 1
 				orgs[j].Jobs[i].org = j
 				orgs[j].Jobs[i].id = idJob
-				deadline := int(k)
+				k = zipf.Uint64() + 1
+				deadline = int(k)
 				orgs[j].Jobs[i].d = deadline
 				if deadline > orgs[j].dMax {
 					orgs[j].dMax = deadline
+					orgs[j].dLinha = deadline
 				}
 				idJob++
 			}
@@ -552,7 +576,7 @@ func start() bool{
 	sort.Sort(ByDMax(orgs))
 	//print()
 
-	for i:=0; i < len(orgs); i++{
+	/*for i:=0; i < len(orgs); i++{
 		sort.Sort(ByDeadline(orgs[i].Jobs))
 		jobs := make([]Jobs, len(orgs[i].Jobs))
 		copy(jobs,orgs[i].Jobs)
@@ -560,11 +584,12 @@ func start() bool{
 		wg.Add(1)
 		go YDS(jobs,i,true)
 	}
+	
+	wg.Wait()*/
+	
 
-	wg.Wait()
-
-	/*fmt.Println("After Sorting")
-	print()*/
+	//fmt.Println("After Sorting")
+	//print()
 
 	for k:=1; k < len(orgs); k++ {
 		jobs := make([]Jobs, len(orgs[k].Jobs))
@@ -579,12 +604,14 @@ func start() bool{
 		sort.Sort(ByDMax(orgs[:k+1]))
 	}
 
+	
+
 	for i:=0; i < len(orgs); i++{
-		wg.Add(1)
-		go YDS(orgs[i].Jobs,i,true)
+		//wg.Add(1)
+		go YDS(orgs[i].Jobs,i,false)
 	}
 
-	wg.Wait()
+	//wg.Wait()
 
 	
 	/*for i:=0; i < len(orgs); i++{
@@ -607,5 +634,6 @@ func main(){
 	var n int64 =15
 
 	zipfDistribution(m,n,1.4267)
+	//buildRandom(4)
 	start()
 }
