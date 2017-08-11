@@ -15,3 +15,5 @@ Os algoritmos nesse projeto foram inteiramente desenvolvidos na linguagem Go. O 
 O algoritmo YDS é um algoritmo de escalonamento de tarefas para obter o consumo de energia mínimo. Ele funciona por meio de cálculos repetitivos do intervalo de execução das tarefas.
 
 Por último temos o algoritmo MOSPEnergy, o algoritmo de escalonamento de tarefas em múltiplas organizações. Ele utiliza a heurística ILBA combinado com o algoritmo YDS.
+
+Avaliamos o desempenho de três variações do algoritmo. O primeiro é o próprio algoritmo MOSPEnergy; o segundo é uma versão onde paralelizamos o YDS; e por último temos a versão "buffered" onde limitamos o nível de parelelismo. 
