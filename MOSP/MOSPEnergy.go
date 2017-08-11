@@ -1,12 +1,10 @@
-package main
+package Test
 
 import (
 "fmt"
 "math/rand"
 "sort"
 "sync"
-"time"
-"log"
 )
 
 type Jobs struct{
@@ -78,7 +76,7 @@ var orgs []Organization
 var identifier int = 0
 var wg sync.WaitGroup
 
-func YDS(jobs []Jobs, m int, t bool){
+func YDSBuffered(jobs []Jobs, m int, sem chan struct{}){
 	
 	var intervaloDensidadeMax Interval
 	var schedule []Schedule
@@ -145,11 +143,155 @@ func YDS(jobs []Jobs, m int, t bool){
 		//fmt.Printf("Jobs restantes %v\n\n",jobs)
 		i++
 	}
-	if t {
-		orgs[m].schedule = schedule
+	orgs[m].schedule = schedule
 
-		defer wg.Done()
+	<-sem
+	defer wg.Done()
+	
+}
+
+func YDSParalelo(jobs []Jobs, m int){
+	
+	var intervaloDensidadeMax Interval
+	var schedule []Schedule
+
+	var auxSchedule Schedule
+
+	var tamanhoIntervalo float32 = 0.0
+	var offset float32 = 0.0
+	var tamanhoTarefa float32 = 0.0
+	var somaProcessamento float32 = 0.0
+
+	i:=0
+	
+	for len(jobs) != 0 {
+
+		interval := calculaIntervalos(jobs)
+
+		// parte 02 do psedoCódigo
+		intervaloDensidadeMax = intervaloDeDensidadeMaxima(interval) 
+
+
+		//parte 03 ''
+		sort.Sort(ByDeadline(intervaloDensidadeMax.Jobs))
+
+		tamanhoIntervalo = float32(intervaloDensidadeMax.end - intervaloDensidadeMax.start)
+
+		offset = float32(intervaloDensidadeMax.start)
+		
+		somaProcessamento = 0.0
+		for j:=0; j < len(intervaloDensidadeMax.Jobs); j++ {
+			somaProcessamento += float32(intervaloDensidadeMax.Jobs[j].w)
+		}
+		
+
+		//parte 04		
+		for j := 0; j < len(intervaloDensidadeMax.Jobs); j++ {
+
+			tamanhoTarefa = (float32(intervaloDensidadeMax.Jobs[j].w) / somaProcessamento) * tamanhoIntervalo
+
+			auxSchedule = Schedule{intervaloDensidadeMax.Jobs[j].id, intervaloDensidadeMax.Jobs[j].org,
+						intervaloDensidadeMax.Jobs[j].offset + offset,
+						intervaloDensidadeMax.Jobs[j].offset + offset + tamanhoTarefa, 					   								intervaloDensidadeMax.intensidade}
+	
+			schedule = append(schedule, auxSchedule)
+			offset += tamanhoTarefa
+
+			for k:=0; k < len(jobs); k++ {
+				if jobs[k].id == intervaloDensidadeMax.Jobs[j].id {
+					if len(jobs) > 1 {
+						jobs = append(jobs[:k], jobs[k+1:]...)
+					} else {
+						jobs = jobs[k:k]
+					}
+					break
+				}
+			}
+		}	
+
+		//parte 05 Ajusta Tarefas
+		if len(jobs) != 0 {
+			jobs = ajustaTarefas(jobs, intervaloDensidadeMax.start, intervaloDensidadeMax.end)	
+		}
+
+		//fmt.Printf("Jobs restantes %v\n\n",jobs)
+		i++
 	}
+	orgs[m].schedule = schedule
+
+	defer wg.Done()
+	
+}
+
+func YDS(jobs []Jobs, m int){
+	
+	var intervaloDensidadeMax Interval
+	var schedule []Schedule
+
+	var auxSchedule Schedule
+
+	var tamanhoIntervalo float32 = 0.0
+	var offset float32 = 0.0
+	var tamanhoTarefa float32 = 0.0
+	var somaProcessamento float32 = 0.0
+
+	i:=0
+	
+	for len(jobs) != 0 {
+
+		interval := calculaIntervalos(jobs)
+
+		// parte 02 do psedoCódigo
+		intervaloDensidadeMax = intervaloDeDensidadeMaxima(interval) 
+
+
+		//parte 03 ''
+		sort.Sort(ByDeadline(intervaloDensidadeMax.Jobs))
+
+		tamanhoIntervalo = float32(intervaloDensidadeMax.end - intervaloDensidadeMax.start)
+
+		offset = float32(intervaloDensidadeMax.start)
+		
+		somaProcessamento = 0.0
+		for j:=0; j < len(intervaloDensidadeMax.Jobs); j++ {
+			somaProcessamento += float32(intervaloDensidadeMax.Jobs[j].w)
+		}
+		
+
+		//parte 04		
+		for j := 0; j < len(intervaloDensidadeMax.Jobs); j++ {
+
+			tamanhoTarefa = (float32(intervaloDensidadeMax.Jobs[j].w) / somaProcessamento) * tamanhoIntervalo
+
+			auxSchedule = Schedule{intervaloDensidadeMax.Jobs[j].id, intervaloDensidadeMax.Jobs[j].org,
+						intervaloDensidadeMax.Jobs[j].offset + offset,
+						intervaloDensidadeMax.Jobs[j].offset + offset + tamanhoTarefa, 					   								intervaloDensidadeMax.intensidade}
+	
+			schedule = append(schedule, auxSchedule)
+			offset += tamanhoTarefa
+
+			for k:=0; k < len(jobs); k++ {
+				if jobs[k].id == intervaloDensidadeMax.Jobs[j].id {
+					if len(jobs) > 1 {
+						jobs = append(jobs[:k], jobs[k+1:]...)
+					} else {
+						jobs = jobs[k:k]
+					}
+					break
+				}
+			}
+		}	
+
+		//parte 05 Ajusta Tarefas
+		if len(jobs) != 0 {
+			jobs = ajustaTarefas(jobs, intervaloDensidadeMax.start, intervaloDensidadeMax.end)	
+		}
+
+		//fmt.Printf("Jobs restantes %v\n\n",jobs)
+		i++
+	}
+
+	orgs[m].schedule = schedule
 }
 
 func trySchedule(jobs []Jobs, k int) bool {
@@ -197,7 +339,7 @@ func trySchedule(jobs []Jobs, k int) bool {
 			
 				if scheduledSpeed <= nowSpeed {
 					orgs[0].Jobs = append(orgs[0].Jobs, tempJob)
-			
+				 
 					for j := len(jobs)-1; j >= 0; j-- {
 						if jobs[j].id == tempJob.id {
 							if len(jobs) > 1 {
@@ -530,10 +672,10 @@ func zipfDistribution(m int, n int64, c float64){
  	zipf := rand.NewZipf(r, c, mFloat, uIntn)
 
 	for j < m {
-		var k uint64 = 1
+		var k uint64 = zipf.Uint64() + 1
+		numberOfJobs := int(k)
 		if k > 0 {
 			orgs[j].id = j
-			numberOfJobs := rand.Intn(int(n)) + 1
 			orgs[j].Jobs = make([]Jobs,numberOfJobs)
 			orgs[j].dMax = 1
 			orgs[j].dLinha = 1
@@ -543,8 +685,7 @@ func zipfDistribution(m int, n int64, c float64){
 				orgs[j].Jobs[i].w = 1
 				orgs[j].Jobs[i].org = j
 				orgs[j].Jobs[i].id = idJob
-				k = zipf.Uint64() + 1
-				deadline = int(k)
+				deadline = rand.Intn(int(m)) + 1
 				orgs[j].Jobs[i].d = deadline
 				if deadline > orgs[j].dMax {
 					orgs[j].dMax = deadline
@@ -570,8 +711,11 @@ func print(){
 	}
 }
 
-func start() bool{
-	defer timeTrack(time.Now(), "start")
+func start(m int, n int64) bool{
+
+	zipfDistribution(m,n,1.4267)
+
+	//defer timeTrack(time.Now(), "start")
 
 	sort.Sort(ByDMax(orgs))
 	//print()
@@ -585,11 +729,8 @@ func start() bool{
 		go YDS(jobs,i,true)
 	}
 	
-	wg.Wait()*/
-	
+	wg.Wait()
 
-	//fmt.Println("After Sorting")
-	//print()
 
 	for k:=1; k < len(orgs); k++ {
 		jobs := make([]Jobs, len(orgs[k].Jobs))
@@ -602,38 +743,26 @@ func start() bool{
 			orgs[k].dMax = orgs[k].Jobs[len(orgs[k].Jobs) -1].d
 		}
 		sort.Sort(ByDMax(orgs[:k+1]))
-	}
-
-	
+	}*/
 
 	for i:=0; i < len(orgs); i++{
 		//wg.Add(1)
-		go YDS(orgs[i].Jobs,i,false)
+		YDS(orgs[i].Jobs,i)
 	}
 
 	//wg.Wait()
 
-	
-	/*for i:=0; i < len(orgs); i++{
-		fmt.Printf("Schedule Organization %d\n",orgs[i].id)
-		fmt.Println(orgs[i].schedule)
+	//print()
 
-		fmt.Printf("-----------------------------------------\n\n")
-	}*/
 
 	return true
 }
 
-func timeTrack(start time.Time, name string) {
+/*func main(){
+	start(15, 20)
+}*/
+
+/*func timeTrack(start time.Time, name string) {
 	elapsed := time.Since(start)
 	log.Printf("%s took %dms", name, elapsed.Nanoseconds()/1000)
-}
-
-func main(){
-	m:=20
-	var n int64 =15
-
-	zipfDistribution(m,n,1.4267)
-	//buildRandom(4)
-	start()
-}
+}*/
